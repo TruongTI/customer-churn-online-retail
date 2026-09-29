@@ -1,0 +1,8 @@
+﻿step,rows_flagged_independent,rows_removed,rows_remaining
+0. Dữ liệu gốc,,0,1067371
+1. Bỏ Customer ID rỗng,243007.0,243007,824364
+2. Bỏ đơn trả/hủy (Quantity<0 hoặc Invoice 'C'),22951.0,18744,805620
+3. Bỏ Price <= 0,6207.0,71,805549
+4. Bỏ StockCode không phải sản phẩm,5930.0,2915,802634
+5. Bỏ dòng trùng lặp hoàn toàn,,26055,776579
+6. Bỏ dòng bán đã bị hủy đúng số lượng,,9228,767351
