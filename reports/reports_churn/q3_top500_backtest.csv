@@ -1,0 +1,5 @@
+﻿,precision_churn,doanh_thu_mat_bat_duoc,ty_le_bat_duoc_%
+Ngẫu nhiên (TB 300 lần),0.382,73830.294,17.898
+Top theo xác suất churn,0.622,55591.403,13.477
+Top theo giá trị (doanh thu/90 ngày),0.14,125049.912,30.315
+Top theo Revenue at Risk (đề xuất),0.32,181287.419,43.949
