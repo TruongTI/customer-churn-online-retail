@@ -1,5 +1,5 @@
 """
-Phase 2 - Làm sạch dữ liệu Online Retail II.
+Làm sạch dữ liệu Online Retail II.
 
 Chạy từ thư mục gốc của repo:
     python src/clean_data.py

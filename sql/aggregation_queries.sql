@@ -1,13 +1,12 @@
 -- =====================================================================
--- Phase 3 - Truy vấn tổng hợp (Aggregation queries) trên Star Schema
--- Điều kiện: đã chạy xong sql/03_star_schema.sql
+-- Truy vấn tổng hợp (Aggregation queries) trên Star Schema
+-- Điều kiện: đã chạy xong sql/star_schema.sql
 -- =====================================================================
 
 
 -- ---------------------------------------------------------------------
 -- Truy vấn 1: Doanh thu, số khách, số hóa đơn theo THÁNG
 -- Mục đích: nguồn dữ liệu cho biểu đồ "xu hướng doanh thu theo thời gian"
--- ở Phase 5 (Trang 1 - Executive Overview).
 -- ---------------------------------------------------------------------
 SELECT
     d.Year,
@@ -58,7 +57,7 @@ ORDER BY DoanhThu DESC;
 
 
 -- ---------------------------------------------------------------------
--- Truy vấn 4: RFM cơ bản mức khách hàng (nền tảng cho Phase 4, câu hỏi 2)
+-- Truy vấn 4: RFM cơ bản mức khách hàng 
 -- Recency: số ngày kể từ lần mua gần nhất tới ngày tham chiếu
 --          (ngày tham chiếu = ngày giao dịch cuối cùng trong toàn bộ dữ liệu,
 --           vì đây là dữ liệu lịch sử, không phải "hôm nay")
@@ -81,7 +80,7 @@ LIMIT 20;
 
 -- ---------------------------------------------------------------------
 -- Truy vấn 5: Cohort Retention đơn giản theo THÁNG mua hàng đầu tiên
--- Mục đích: nguồn dữ liệu thô cho biểu đồ "Cohort Retention Rate" ở Phase 5.
+-- Mục đích: nguồn dữ liệu thô cho biểu đồ "Cohort Retention Rate"
 -- Ý tưởng: nhóm mỗi khách theo tháng mua đầu tiên (cohort), sau đó đếm số
 -- khách trong cohort đó còn quay lại mua ở các tháng tiếp theo.
 -- ---------------------------------------------------------------------

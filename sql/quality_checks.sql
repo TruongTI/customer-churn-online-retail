@@ -1,5 +1,5 @@
 -- =====================================================================
--- Phase 2 - Kiểm tra chất lượng dữ liệu sau làm sạch (chạy trong DBeaver)
+-- Kiểm tra chất lượng dữ liệu sau làm sạch (chạy trong DBeaver)
 -- Kết nối tới: data/processed/retail.duckdb
 -- =====================================================================
 

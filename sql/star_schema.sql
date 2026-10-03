@@ -1,14 +1,12 @@
 -- =====================================================================
--- Phase 3 - Thiết kế Star Schema trong DuckDB
+-- Thiết kế Star Schema trong DuckDB
 -- Chạy trong DBeaver, kết nối tới data/processed/retail.duckdb
--- Điều kiện: đã chạy xong Phase 2 (bảng clean_retail tồn tại)
 -- =====================================================================
 
 
 -- ---------------------------------------------------------------------
 -- 1) DIM_DATE
 -- Một dòng cho mỗi ngày xuất hiện trong dữ liệu (không phải lịch đầy đủ),
--- đủ dùng cho phân tích chuỗi thời gian ở Phase 4 & 5.
 -- Grain: 1 dòng = 1 ngày
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE TABLE Dim_Date AS

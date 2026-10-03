@@ -1,5 +1,0 @@
-﻿Mo_hinh,Giai_doan,Accuracy,Precision,Recall,F1,ROC_AUC
-Logistic Regression,2010 (tập giữ lại),0.649,0.546,0.512,0.528,0.687
-Logistic Regression,2011,0.687,0.595,0.572,0.583,0.75
-Random Forest,2010 (tập giữ lại),0.624,0.511,0.512,0.511,0.681
-Random Forest,2011,0.677,0.578,0.579,0.579,0.739

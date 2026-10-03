@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Phase 4 - Câu hỏi 1: Định nghĩa Churn (mô hình Non-contractual)
+# # Câu hỏi 1: Định nghĩa Churn (mô hình Non-contractual)
 # Chạy từ thư mục gốc repo: `python src/04a_churn_definition.py`
 # (trong VS Code/Jupyter có thể chạy từng ô `# %%`)
 

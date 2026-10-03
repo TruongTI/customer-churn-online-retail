@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Phase 4 - Câu hỏi 2: Phân khúc khách hàng (RFM) & độ ổn định theo quý
+# # Câu hỏi 2: Phân khúc khách hàng (RFM) & độ ổn định theo quý
 # Chạy: `python src/04b_rfm_segmentation.py`
 
 # %%
@@ -134,7 +134,7 @@ print("ARI giữa phân khúc quy tắc và K-Means:", round(ari, 3))
 print(pd.crosstab(now["Segment"], now["Cluster"]).reindex(SEG_ORDER).to_string())
 
 # %% [markdown]
-# ## 5. Lưu kết quả cho Phase 5 (Power BI)
+# ## 5. Lưu kết quả
 
 # %%
 out = now.reset_index().merge(lines.drop_duplicates("CustomerID")[["CustomerID", "Country"]], on="CustomerID")

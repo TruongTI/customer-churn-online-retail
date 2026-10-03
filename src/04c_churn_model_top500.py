@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Phase 4 - Câu hỏi 3 + Bài toán nghiệp vụ: Dự báo churn, Model Drift, chọn Top 500 khách hàng
+# # Câu hỏi 3 + Bài toán nghiệp vụ: Dự báo churn, Model Drift, chọn Top 500 khách hàng
 # Chạy: `python src/04c_churn_model_top500.py`
 #
 # Định nghĩa (chốt ở câu hỏi 1): churn = KHÔNG mua trong 90 ngày sau ngày snapshot.

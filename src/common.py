@@ -1,4 +1,4 @@
-"""Hàm dùng chung cho Phase 4 (đọc dữ liệu, tạo snapshot đặc trưng, vẽ biểu đồ)."""
+"""đọc dữ liệu, tạo snapshot đặc trưng, vẽ biểu đồ)."""
 from pathlib import Path
 
 import duckdb
@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 DB_PATH = Path("data/processed/retail.duckdb")
-REPORT_DIR = Path("reports/phase4")
+REPORT_DIR = Path("reports/reports_churn")
 FIG_DIR = REPORT_DIR / "figures"
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 FIG_DIR.mkdir(parents=True, exist_ok=True)

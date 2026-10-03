@@ -1,3 +1,0 @@
-﻿Mo_hinh,Accuracy,Precision,Recall,F1,ROC_AUC
-Logistic Regression,0.038,0.049,0.06,0.055,0.063
-Random Forest,0.053,0.067,0.067,0.068,0.058
