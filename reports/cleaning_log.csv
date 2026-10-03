@@ -5,4 +5,4 @@
 3. Bỏ Price <= 0,6207.0,71,805549
 4. Bỏ StockCode không phải sản phẩm,5930.0,2915,802634
 5. Bỏ dòng trùng lặp hoàn toàn,,26055,776579
-6. Bỏ dòng bán đã bị hủy đúng số lượng,,9228,767351
+6. Bỏ dòng bán đã bị hủy đúng số lượng,,6271,770308

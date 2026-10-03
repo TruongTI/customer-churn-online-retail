@@ -1,5 +1,5 @@
 """
-Làm sạch dữ liệu Online Retail II.
+Phase 2 - Làm sạch dữ liệu Online Retail II.
 
 Chạy từ thư mục gốc của repo:
     python src/clean_data.py
@@ -95,10 +95,40 @@ if DROP_FULLY_CANCELLED:
     canc = canc.rename(columns={"InvoiceDate": "cancel_date"})[
         ["Customer ID", "StockCode", "Quantity", "cancel_date"]]
 
-    tmp = df.reset_index().rename(columns={"index": "_rid"})
-    m = tmp.merge(canc, on=["Customer ID", "StockCode", "Quantity"], how="inner")
-    m = m[m["cancel_date"] >= m["InvoiceDate"]]                # hủy phải xảy ra SAU khi bán
-    cancelled_ids = set(m["_rid"])
+    # Ghép 1-1 theo thời gian (LIFO): mỗi dòng hủy chỉ được phép hủy ĐÚNG MỘT
+    # dòng bán cùng khóa (Customer ID, StockCode, Quantity) có InvoiceDate gần
+    # nhất TRƯỚC nó và CHƯA bị dòng hủy nào khác "nhận" trước đó.
+    #
+    # Lưu ý: nếu ghép bằng merge thông thường trên khóa (Customer ID, StockCode,
+    # Quantity), MỘT dòng hủy có thể khớp nhầm với NHIỀU dòng bán trùng khóa
+    # (ví dụ khách mua cùng sản phẩm, cùng số lượng ở 2 hóa đơn khác nhau)
+    # -> xóa oan các đơn hợp lệ. Thuật toán dưới đây đảm bảo quan hệ 1-1.
+    #
+    # Đổi tên cột trước khi dùng itertuples để tránh pandas tự đổi tên field
+    # (cột có khoảng trắng hoặc bắt đầu bằng "_" sẽ bị itertuples đổi thành
+    # "_0", "_1"... một cách không tường minh, dễ gây lỗi thầm lặng).
+    tmp = (df.reset_index()
+             .rename(columns={"index": "rid", "Customer ID": "CustID"})
+             [["rid", "CustID", "StockCode", "Quantity", "InvoiceDate"]])
+    canc_r = canc.rename(columns={"Customer ID": "CustID"})
+
+    from collections import defaultdict, deque
+
+    events = []  # (thời điểm, 0=bán/1=hủy ưu tiên xử lý sau trong cùng thời điểm, khóa, rid)
+    for row in tmp.itertuples(index=False):
+        events.append((row.InvoiceDate, 0, (row.CustID, row.StockCode, row.Quantity), row.rid))
+    for row in canc_r.itertuples(index=False):
+        events.append((row.cancel_date, 1, (row.CustID, row.StockCode, row.Quantity), None))
+    events.sort(key=lambda e: (e[0], e[1]))   # cùng thời điểm: xử lý "bán" (0) trước "hủy" (1)
+
+    pending = defaultdict(deque)  # khóa -> deque các rid đang chờ, theo thứ tự thời gian bán
+    cancelled_ids = set()
+    for _, kind, key, rid in events:
+        if kind == 0:
+            pending[key].append(rid)
+        elif pending[key]:
+            cancelled_ids.add(pending[key].pop())    # LIFO: hủy đơn bán gần nhất còn lại
+
     step = df[~df.index.isin(cancelled_ids)]
     record("6. Bỏ dòng bán đã bị hủy đúng số lượng", df, step); df = step
 
