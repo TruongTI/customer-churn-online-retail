@@ -2,25 +2,41 @@
 # # Câu hỏi 3 + Bài toán nghiệp vụ: Dự báo churn, Model Drift, chọn Top 500 khách hàng
 # Chạy: `python src/04c_churn_model_top500.py`
 #
-# Định nghĩa (chốt ở câu hỏi 1): churn = KHÔNG mua trong 90 ngày sau ngày snapshot.
-# Khách hàng đưa vào mô hình = khách "đang hoạt động" (có mua trong 180 ngày trước snapshot).
-# Đặc trưng chỉ dùng dữ liệu TRƯỚC snapshot (cửa sổ 270 ngày) -> không rò rỉ tương lai.
+# Định nghĩa (chốt ở câu hỏi 1): churn = KHÔNG mua trong CHURN_DAYS (90) ngày sau ngày snapshot.
+# Khách hàng đưa vào mô hình = khách "đang hoạt động" (có mua trong ACTIVE_DAYS (180) ngày trước snapshot).
+# Đặc trưng chỉ dùng dữ liệu TRƯỚC snapshot (cửa sổ LOOKBACK_DAYS (270) ngày) -> không rò rỉ tương lai.
+# Các ngưỡng này khai báo duy nhất trong src/common.py.
+# Cần chạy 04b_rfm_segmentation.py trước (dùng data/processed/rfm_segments.csv).
 
 # %%
-import sys; sys.path.insert(0, "src")
-import duckdb, numpy as np, pandas as pd, matplotlib.pyplot as plt
+import sys
+from pathlib import Path
+# tìm src/ để import common: chạy như script (__file__) hoặc chạy từng ô từ thư mục gốc repo / thư mục src
+sys.path.insert(0, str(Path(__file__).resolve().parent) if "__file__" in globals() else "src")
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
-from common import load_lines, data_end, build_snapshot, FEATURES, REPORT_DIR, FIG_DIR, DB_PATH
+from common import (load_lines, data_end, build_snapshot, connect, FEATURES, REPORT_DIR, FIG_DIR,
+                    PROCESSED_DIR, CHURN_DAYS)
 
 SEED = 42
-HORIZON = 90
+HORIZON = CHURN_DAYS
+RFM_CSV = PROCESSED_DIR / "rfm_segments.csv"
 lines = load_lines()
 END = data_end(lines)
+
+# Kiểm tra sớm kết quả của 04b (tránh huấn luyện xong mới lỗi, hoặc ghép nhầm phân khúc cũ)
+if not RFM_CSV.exists():
+    sys.exit(f"Chưa có {RFM_CSV}. Hãy chạy `python src/04b_rfm_segmentation.py` trước.")
+_rfm = pd.read_csv(RFM_CSV, parse_dates=["ReferenceDate"])
+if _rfm["ReferenceDate"].max() != END or len(_rfm) != lines["CustomerID"].nunique():
+    sys.exit(f"{RFM_CSV.name} đã cũ (ngày tham chiếu {_rfm['ReferenceDate'].max().date()}, {len(_rfm):,} khách; "
+             f"dữ liệu hiện tại: {END.date()}, {lines['CustomerID'].nunique():,} khách). "
+             f"Hãy chạy lại `python src/04b_rfm_segmentation.py`.")
 
 def make_lr():
     return make_pipeline(FunctionTransformer(np.log1p), StandardScaler(),
@@ -78,17 +94,37 @@ drift.to_csv(REPORT_DIR / "q3_drift_delta.csv", index=False, encoding="utf-8-sig
 
 # %%
 def psi(expected, actual, bins=10):
-    edges = np.unique(np.quantile(expected, np.linspace(0, 1, bins + 1)))
-    if len(edges) < 3:
-        return 0.0
-    edges[0], edges[-1] = -np.inf, np.inf
-    e = np.histogram(expected, edges)[0] / len(expected)
-    a = np.histogram(actual, edges)[0] / len(actual)
-    e, a = np.clip(e, 1e-4, None), np.clip(a, 1e-4, None)
-    return float(np.sum((a - e) * np.log(a / e)))
+    """
+    Population Stability Index giữa `expected` (2010) và `actual` (2011).
+    Trả về (PSI, số bin thực tế dùng để tính).
 
+    - Biến rời rạc (số giá trị khác nhau <= bins, ví dụ is_uk 0/1): mỗi giá trị
+      là một bin, lấy hợp các giá trị của cả 2 kỳ -> giá trị chỉ xuất hiện ở kỳ
+      sau vẫn được tính (không bị bỏ sót).
+    - Biến liên tục: chia bin theo phân vị của `expected`. Phân vị trùng nhau
+      (nhiều giá trị bằng nhau) bị gộp, nên số bin có thể < bins.
+    - Chỉ trả về 0 khi cả 2 kỳ chỉ có đúng 1 giá trị (thực sự không đổi).
+    """
+    e_vals = np.asarray(expected, dtype=float)
+    a_vals = np.asarray(actual, dtype=float)
+    if len(np.unique(e_vals)) <= bins:
+        cats = np.union1d(np.unique(e_vals), np.unique(a_vals))
+        e = np.array([(e_vals == v).mean() for v in cats])
+        a = np.array([(a_vals == v).mean() for v in cats])
+    else:
+        edges = np.unique(np.quantile(e_vals, np.linspace(0, 1, bins + 1)))
+        edges[0], edges[-1] = -np.inf, np.inf
+        e = np.histogram(e_vals, edges)[0] / len(e_vals)
+        a = np.histogram(a_vals, edges)[0] / len(a_vals)
+    if len(e) < 2:
+        return 0.0, len(e)
+    e, a = np.clip(e, 1e-4, None), np.clip(a, 1e-4, None)
+    return float(np.sum((a - e) * np.log(a / e))), len(e)
+
+_psi = {f: psi(d10[f], d11[f]) for f in FEATURES}
 psi_df = pd.DataFrame({"feature": FEATURES,
-                       "PSI": [psi(d10[f], d11[f]) for f in FEATURES]}).sort_values("PSI", ascending=False).round(3)
+                       "PSI": [_psi[f][0] for f in FEATURES],
+                       "so_bin": [_psi[f][1] for f in FEATURES]}).sort_values("PSI", ascending=False).round(3)
 psi_df["muc_do"] = pd.cut(psi_df["PSI"], [-1, 0.1, 0.25, 99], labels=["ổn định", "thay đổi vừa", "thay đổi lớn"])
 print("\nPSI (>0.25 = thay đổi lớn):\n", psi_df.to_string(index=False))
 psi_df.to_csv(REPORT_DIR / "q3_feature_psi.csv", index=False, encoding="utf-8-sig")
@@ -168,7 +204,7 @@ now = now.sort_values("rev_at_risk", ascending=False)
 now["rank"] = np.arange(1, len(now) + 1)
 now["top500"] = now["rank"] <= K
 
-seg = pd.read_csv("data/processed/rfm_segments.csv")[["CustomerID", "Segment"]].set_index("CustomerID")
+seg = _rfm[["CustomerID", "Segment"]].set_index("CustomerID")
 now = now.join(seg, how="left")
 cols = ["rank", "top500", "Segment", "p_churn", "rev90_est", "rev_at_risk", "recency", "frequency", "monetary", "avg_gap", "is_uk"]
 out = now[cols].round(3).reset_index()
@@ -180,9 +216,9 @@ print(f"Top {K}: tổng Revenue at Risk = {top['rev_at_risk'].sum():,.0f} "
 print("Phân bố phân khúc RFM trong Top 500:\n", top["Segment"].value_counts().to_string())
 print(top.head(10).to_string(index=False))
 
-out.to_csv("data/processed/churn_scores.csv", index=False)
+out.to_csv(PROCESSED_DIR / "churn_scores.csv", index=False)
 top.to_csv(REPORT_DIR / "q3_top500_list.csv", index=False, encoding="utf-8-sig")
-con = duckdb.connect(str(DB_PATH))
+con = connect()
 con.execute("CREATE OR REPLACE TABLE churn_scores AS SELECT * FROM out")
 con.close()
 

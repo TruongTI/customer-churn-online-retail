@@ -3,12 +3,15 @@
 # Chạy: `python src/04b_rfm_segmentation.py`
 
 # %%
-import sys; sys.path.insert(0, "src")
-import duckdb, numpy as np, pandas as pd, matplotlib.pyplot as plt, seaborn as sns
+import sys
+from pathlib import Path
+# tìm src/ để import common: chạy như script (__file__) hoặc chạy từng ô từ thư mục gốc repo / thư mục src
+sys.path.insert(0, str(Path(__file__).resolve().parent) if "__file__" in globals() else "src")
+import numpy as np, pandas as pd, matplotlib.pyplot as plt, seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
-from common import load_lines, data_end, REPORT_DIR, FIG_DIR, DB_PATH
+from common import load_lines, data_end, connect, REPORT_DIR, FIG_DIR, PROCESSED_DIR
 
 lines = load_lines()
 END = data_end(lines)
@@ -139,8 +142,8 @@ print(pd.crosstab(now["Segment"], now["Cluster"]).reindex(SEG_ORDER).to_string()
 # %%
 out = now.reset_index().merge(lines.drop_duplicates("CustomerID")[["CustomerID", "Country"]], on="CustomerID")
 out["ReferenceDate"] = END
-out.to_csv("data/processed/rfm_segments.csv", index=False)
-con = duckdb.connect(str(DB_PATH))
+out.to_csv(PROCESSED_DIR / "rfm_segments.csv", index=False)
+con = connect()
 con.execute("CREATE OR REPLACE TABLE rfm_segments AS SELECT * FROM out")
 con.close()
 print("\nĐã lưu data/processed/rfm_segments.csv và bảng rfm_segments trong DuckDB:", len(out), "khách")

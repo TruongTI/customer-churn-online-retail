@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import pandas as pd
 
-df = pd.read_csv("data/raw/online_retail_II.csv", parse_dates=["InvoiceDate"])
+RAW_CSV = Path(__file__).resolve().parent.parent / "data" / "raw" / "online_retail_II.csv"
+df = pd.read_csv(RAW_CSV, parse_dates=["InvoiceDate"])
 
 print(df.shape)                       # ~1.07 triệu dòng, 8 cột
 print(df.dtypes)

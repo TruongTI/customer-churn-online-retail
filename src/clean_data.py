@@ -1,24 +1,35 @@
 """
 Phase 2 - Làm sạch dữ liệu Online Retail II.
 
-Chạy từ thư mục gốc của repo:
+Chạy (từ thư mục nào cũng được):
     python src/clean_data.py
+Bước tiếp theo: python src/build_star_schema.py
 
 Đầu vào : data/raw/online_retail_II.csv
 Đầu ra  : data/processed/online_retail_clean.parquet
           data/processed/retail.duckdb  (bảng clean_retail, cleaning_log)
           reports/cleaning_log.csv      (nhật ký số dòng bị loại ở mỗi bước)
 """
+import sys
 from pathlib import Path
 
-import duckdb
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import ROOT, RAW_DIR, PROCESSED_DIR, DB_PATH, connect  # noqa: E402
+
 # ------------------------------------------------------------------ cấu hình
-RAW_CSV = Path("data/raw/online_retail_II.csv")
-OUT_PARQUET = Path("data/processed/online_retail_clean.parquet")
-OUT_DUCKDB = Path("data/processed/retail.duckdb")
-OUT_LOG = Path("reports/cleaning_log.csv")
+RAW_CSV = RAW_DIR / "online_retail_II.csv"
+OUT_PARQUET = PROCESSED_DIR / "online_retail_clean.parquet"
+OUT_DUCKDB = DB_PATH
+OUT_LOG = ROOT / "reports" / "cleaning_log.csv"
+
+if not RAW_CSV.exists():
+    sys.exit(f"Không tìm thấy {RAW_CSV}. Tải Online Retail II và đặt file CSV vào data/raw/ (xem README mục 3.3).")
+
+# Kiểm tra sớm: nếu DBeaver đang giữ file DuckDB thì báo ngay, không đợi làm sạch xong
+OUT_DUCKDB.parent.mkdir(parents=True, exist_ok=True)
+connect().close()
 
 # Bước bổ sung ngoài checklist (bật/tắt được, xem giải thích trong hướng dẫn)
 DROP_DUPLICATES = True         # bỏ dòng trùng lặp hoàn toàn
@@ -84,13 +95,24 @@ if DROP_DUPLICATES:
     record("5. Bỏ dòng trùng lặp hoàn toàn", df, step); df = step
 
 if DROP_FULLY_CANCELLED:
-    # Lấy các dòng hủy của TẤT CẢ dữ liệu gốc có Customer ID
-    raw = pd.read_csv(RAW_CSV, dtype={"Invoice": "string", "StockCode": "string"},
-                      parse_dates=["InvoiceDate"], usecols=["Invoice", "StockCode", "Quantity",
-                                                            "InvoiceDate", "Customer ID"])
-    raw = raw.dropna(subset=["Customer ID"])
+    # Lấy các dòng hủy của TẤT CẢ dữ liệu gốc có Customer ID.
+    # Đọc đủ 8 cột và chuẩn hóa giống hệt bước 1 để tiêu chí "trùng lặp" của
+    # dòng hủy khớp với tiêu chí đã dùng cho dòng bán ở bước 5.
+    raw = pd.read_csv(
+        RAW_CSV,
+        dtype={"Invoice": "string", "StockCode": "string", "Description": "string", "Country": "string"},
+        parse_dates=["InvoiceDate"],
+    )
     raw["StockCode"] = raw["StockCode"].str.strip().str.upper()
+    raw["Invoice"] = raw["Invoice"].str.strip()
+    raw = raw.dropna(subset=["Customer ID"])
     canc = raw[raw["Invoice"].str.startswith("C")].copy()
+    if DROP_DUPLICATES:
+        # Dòng bán đã bỏ trùng lặp ở bước 5 -> dòng hủy cũng phải bỏ trùng lặp,
+        # nếu không 1 dòng hủy bị nhân đôi sẽ "nhận" thêm 1 dòng bán hợp lệ khác.
+        n_dup_canc = int(canc.duplicated().sum())
+        canc = canc.drop_duplicates()
+        print(f"   (bỏ {n_dup_canc:,} dòng hủy trùng lặp hoàn toàn trước khi ghép)")
     canc["Quantity"] = -canc["Quantity"]                       # đổi về số dương để khớp với dòng bán
     canc = canc.rename(columns={"InvoiceDate": "cancel_date"})[
         ["Customer ID", "StockCode", "Quantity", "cancel_date"]]
@@ -164,9 +186,10 @@ df.to_parquet(OUT_PARQUET, index=False)
 log_df = pd.DataFrame(log)
 log_df.to_csv(OUT_LOG, index=False, encoding="utf-8-sig")
 
-con = duckdb.connect(str(OUT_DUCKDB))
+con = connect()
 con.execute("CREATE OR REPLACE TABLE clean_retail AS SELECT * FROM df")
 con.execute("CREATE OR REPLACE TABLE cleaning_log AS SELECT * FROM log_df")
 print("\nBảng trong DuckDB:", con.execute("SHOW TABLES").fetchall())
 con.close()
 print(f"Đã lưu: {OUT_PARQUET}, {OUT_DUCKDB}, {OUT_LOG}")
+print("Bước tiếp theo: python src/build_star_schema.py  (Star Schema hiện có trong DB đã cũ)")

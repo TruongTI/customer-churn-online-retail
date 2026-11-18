@@ -1,12 +1,15 @@
 # %% [markdown]
 # # Câu hỏi 1: Định nghĩa Churn (mô hình Non-contractual)
-# Chạy từ thư mục gốc repo: `python src/04a_churn_definition.py`
+# Chạy: `python src/04a_churn_definition.py` (từ thư mục nào cũng được)
 # (trong VS Code/Jupyter có thể chạy từng ô `# %%`)
 
 # %%
-import sys; sys.path.insert(0, "src")
+import sys
+from pathlib import Path
+# tìm src/ để import common: chạy như script (__file__) hoặc chạy từng ô từ thư mục gốc repo / thư mục src
+sys.path.insert(0, str(Path(__file__).resolve().parent) if "__file__" in globals() else "src")
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
-from common import load_lines, data_end, REPORT_DIR, FIG_DIR
+from common import load_lines, data_end, REPORT_DIR, FIG_DIR, CHURN_DAYS, ACTIVE_DAYS
 
 lines = load_lines()
 END = data_end(lines)
@@ -48,7 +51,7 @@ for N in [30, 60, 90, 120, 180]:
             continue
         past = days[days["day"] <= s]
         last = past.groupby("CustomerID")["day"].max()
-        active = last[(s - last).dt.days <= 180].index
+        active = last[(s - last).dt.days <= ACTIVE_DAYS].index
         fut = days[(days["day"] > s) & (days["day"] <= s + pd.Timedelta(days=N))]["CustomerID"].unique()
         rows.append((N, s, len(active), 1 - np.isin(active, fut).mean()))
 sens = pd.DataFrame(rows, columns=["N_ngay", "snapshot", "so_khach_active", "ty_le_churn"])
@@ -88,5 +91,6 @@ ret.to_csv(REPORT_DIR / "q1_return_probability.csv", index=False, encoding="utf-
 # ## 4. Kết luận
 # Chốt **N = 90 ngày** (xem giải thích trong báo cáo): xấp xỉ phân vị 80% của khoảng cách giữa 2 lần mua,
 # tỷ lệ churn quanh 40-50% (cân bằng cho mô hình), đủ ngắn để hành động kịp thời.
-CHURN_DAYS = 90
+# Giá trị chốt được khai báo DUY NHẤT trong src/common.py (CHURN_DAYS) và
+# 04c_churn_model_top500.py dùng lại chính hằng số đó -> đổi ngưỡng chỉ cần sửa 1 chỗ.
 print("\nĐịnh nghĩa chốt: khách hàng churn nếu không mua trong", CHURN_DAYS, "ngày.")
