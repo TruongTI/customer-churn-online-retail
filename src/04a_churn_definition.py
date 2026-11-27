@@ -1,9 +1,9 @@
-# %% [markdown]
-# # Câu hỏi 1: Định nghĩa Churn (mô hình Non-contractual)
-# Chạy: `python src/04a_churn_definition.py` (từ thư mục nào cũng được)
-# (trong VS Code/Jupyter có thể chạy từng ô `# %%`)
 
-# %%
+# # Câu hỏi 1: Định nghĩa Churn (mô hình Non-contractual)
+# Chạy: `python src/04a_churn_definition.py`
+
+
+
 import sys
 from pathlib import Path
 # tìm src/ để import common: chạy như script (__file__) hoặc chạy từng ô từ thư mục gốc repo / thư mục src
@@ -19,7 +19,7 @@ print("Ngày cuối dữ liệu:", END.date())
 days = lines[["CustomerID", "day"]].drop_duplicates().sort_values(["CustomerID", "day"])
 days["gap"] = days.groupby("CustomerID")["day"].diff().dt.days
 
-# %% [markdown]
+
 # ## 1. Khoảng cách giữa 2 lần mua liên tiếp (inter-purchase gap)
 # Nếu 80% các lần quay lại xảy ra trong vòng X ngày thì X là ngưỡng "im lặng" hợp lý.
 
@@ -36,7 +36,7 @@ for n, c in [(60, "#DD8452"), (90, "#C44E52"), (120, "#55A868")]:
 ax.set(title="Phân phối khoảng cách giữa 2 lần mua liên tiếp", xlabel="Số ngày (cắt tại 400)", ylabel="Số lần")
 ax.legend(); fig.tight_layout(); fig.savefig(FIG_DIR / "q1_gap_distribution.png"); plt.close(fig)
 
-# %% [markdown]
+
 # ## 2. Độ nhạy: tỷ lệ churn theo ngưỡng N (Sensitivity Analysis)
 # Tại mỗi mốc thời gian (snapshot cuối tháng), lấy nhóm khách "đang hoạt động"
 # (có mua trong 180 ngày trước đó), churn = không mua trong N ngày tiếp theo.
