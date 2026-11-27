@@ -13,8 +13,13 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    import openpyxl  # noqa: F401  (pandas dùng để ghi file Excel Top 500)
+except ImportError:
+    sys.exit("Thiếu thư viện openpyxl. Hãy chạy: pip install -r requirements.txt")
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import POWERBI_DIR, connect, check_star_schema_fresh  # noqa: E402
+from common import ROOT, POWERBI_DIR, connect, check_star_schema_fresh  # noqa: E402
 
 OUT_DIR = POWERBI_DIR
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -151,6 +156,102 @@ assert (cohort.loc[cohort["MonthIndex"] == 0, "RetentionRate_Pct"] == 100.0).all
     "Cohort_Retention: tháng 0 không đạt 100% -> kiểm tra lại Dim_Customer/Fact_Sales"
 cohort.to_csv(OUT_DIR / "Cohort_Retention.csv", index=False, encoding="utf-8-sig")
 print(f"Cohort_Retention: {len(cohort):,} dòng, {cohort['CohortMonth'].nunique()} cohort")
+
+# ------------------------------------------------------------------ Top 500 -> Excel
+# Power BI Desktop chỉ xuất dữ liệu visual ra .csv, nên danh sách Top 500 được
+# xuất sẵn ra Excel cho bộ phận kinh doanh: sắp xếp theo Revenue at Risk giảm dần,
+# tiêu đề tiếng Việt, có bộ lọc, cố định dòng tiêu đề, kèm sheet giải thích.
+top500 = con.execute("""
+    SELECT s.rank                         AS "Hạng ưu tiên",
+           s.CustomerID                   AS "Mã khách hàng",
+           c.Country                      AS "Quốc gia",
+           s.Segment                      AS "Phân khúc RFM",
+           s.p_churn                      AS "Xác suất churn",
+           s.rev90_est                    AS "Doanh thu ước tính 90 ngày (GBP)",
+           s.rev_at_risk                  AS "Revenue at Risk (GBP)",
+           s.recency                      AS "Số ngày từ lần mua cuối",
+           s.frequency                    AS "Số hóa đơn (270 ngày gần nhất)",
+           CAST(c.LastPurchaseDate AS DATE)  AS "Ngày mua gần nhất",
+           CAST(c.FirstPurchaseDate AS DATE) AS "Ngày mua đầu tiên",
+           ROUND(c.TotalRevenue, 2)       AS "Tổng doanh thu lịch sử (GBP)"
+    FROM churn_scores s
+    JOIN Dim_Customer c USING (CustomerID)
+    WHERE s.top500
+    ORDER BY s.rank
+""").fetchdf()
+snapshot_date = con.execute("SELECT CAST(MAX(InvoiceDate) AS DATE) FROM Fact_Sales").fetchone()[0]
+total_rar = con.execute("SELECT SUM(rev_at_risk) FROM churn_scores").fetchone()[0]
+n_scored = con.execute("SELECT COUNT(*) FROM churn_scores").fetchone()[0]
+
+assert len(top500) == 500, f"Top 500 có {len(top500)} dòng"
+assert top500["Revenue at Risk (GBP)"].is_monotonic_decreasing, "Top 500 chưa sắp xếp theo Revenue at Risk"
+
+# Gợi ý hành động theo phân khúc (là GỢI Ý, bộ phận kinh doanh điều chỉnh theo thực tế)
+ACTIONS = {
+    "Champions": "Gọi điện chăm sóc cá nhân, ưu đãi VIP / giao hàng ưu tiên",
+    "Loyal": "Email cá nhân hóa + ưu đãi khi đặt đơn tiếp theo",
+    "Potential Loyalist": "Gợi ý sản phẩm theo lịch sử mua, khuyến khích đơn tiếp theo",
+    "Need Attention": "Voucher có thời hạn ngắn để kéo khách quay lại",
+    "At Risk": "Liên hệ hỏi lý do ngừng mua + ưu đãi win-back",
+    "Hibernating": "Email win-back chi phí thấp",
+}
+top500["Hành động gợi ý"] = top500["Phân khúc RFM"].map(ACTIONS).fillna("Chăm sóc theo đánh giá của bộ phận kinh doanh")
+
+seg_summary = (top500.groupby("Phân khúc RFM")
+               .agg(**{"Số khách": ("Mã khách hàng", "count"),
+                       "Tổng Revenue at Risk (GBP)": ("Revenue at Risk (GBP)", "sum"),
+                       "Xác suất churn trung bình": ("Xác suất churn", "mean")})
+               .sort_values("Tổng Revenue at Risk (GBP)", ascending=False)
+               .reset_index())
+
+notes = pd.DataFrame({"Nội dung": [
+    "Danh sách 500 khách hàng ưu tiên chăm sóc trong 90 ngày tới",
+    f"Ngày tham chiếu (giao dịch cuối cùng trong dữ liệu): {snapshot_date:%d/%m/%Y}",
+    f"Số khách đang hoạt động được chấm điểm: {n_scored:,} (có mua trong 180 ngày trước ngày tham chiếu)".replace(",", "."),
+    f"Top 500 chiếm {100 * top500['Revenue at Risk (GBP)'].sum() / total_rar:.1f}% tổng Revenue at Risk".replace(".", ","),
+    "",
+    "Giải thích cột:",
+    "Xác suất churn: xác suất khách KHÔNG mua trong 90 ngày tới (mô hình Random Forest huấn luyện trên các snapshot lịch sử 2010–2011)",
+    "Doanh thu ước tính 90 ngày: doanh thu trung bình mỗi 90 ngày, ước từ 270 ngày lịch sử trước ngày tham chiếu",
+    "Revenue at Risk = Xác suất churn × Doanh thu ước tính 90 ngày (giá trị kỳ vọng có thể mất, KHÔNG phải doanh thu chắc chắn mất)",
+    "Hạng ưu tiên: xếp theo Revenue at Risk giảm dần (hạng 1 = cần chăm sóc trước nhất)",
+    "Hành động gợi ý: gợi ý theo phân khúc RFM, bộ phận kinh doanh điều chỉnh theo thực tế",
+    "",
+    "Nguồn: src/export_for_powerbi.py (chạy lại bằng python src/run_pipeline.py)",
+]})
+
+XLSX_PATH = ROOT / "reports" / "Top500_KhachHang_ChamSoc.xlsx"
+with pd.ExcelWriter(XLSX_PATH, engine="openpyxl") as xw:
+    top500.to_excel(xw, sheet_name="Top 500", index=False)
+    seg_summary.to_excel(xw, sheet_name="Tóm tắt theo phân khúc", index=False)
+    notes.to_excel(xw, sheet_name="Ghi chú", index=False)
+
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    header_fill = PatternFill("solid", fgColor="F4B183")
+    formats = {
+        "Xác suất churn": "0.0%", "Xác suất churn trung bình": "0.0%",
+        "Doanh thu ước tính 90 ngày (GBP)": "#,##0.00", "Revenue at Risk (GBP)": "#,##0.00",
+        "Tổng Revenue at Risk (GBP)": "#,##0.00", "Tổng doanh thu lịch sử (GBP)": "#,##0.00",
+        "Ngày mua gần nhất": "dd/mm/yyyy", "Ngày mua đầu tiên": "dd/mm/yyyy",
+    }
+    for ws, df in [(xw.sheets["Top 500"], top500), (xw.sheets["Tóm tắt theo phân khúc"], seg_summary)]:
+        for j, col in enumerate(df.columns, start=1):
+            cell = ws.cell(row=1, column=j)
+            cell.font, cell.fill = Font(bold=True), header_fill
+            cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+            width = max(len(str(col)) * 0.8, df[col].astype(str).str.len().max() + 2)
+            ws.column_dimensions[get_column_letter(j)].width = min(max(width, 10), 60)
+            if col in formats:
+                for r in range(2, len(df) + 2):
+                    ws.cell(row=r, column=j).number_format = formats[col]
+        ws.row_dimensions[1].height = 45
+        ws.freeze_panes = "C2" if ws.title == "Top 500" else "A2"
+        ws.auto_filter.ref = ws.dimensions
+    wn = xw.sheets["Ghi chú"]
+    wn.column_dimensions["A"].width = 120
+    wn["A1"].font, wn["A2"].font = Font(bold=True), Font(bold=True, size=13)
+print(f"Top 500 -> Excel: {XLSX_PATH} ({len(top500)} khách, sắp xếp theo Revenue at Risk giảm dần)")
 
 con.close()
 print(f"\nĐã xuất xong vào thư mục: {OUT_DIR.resolve()}")
