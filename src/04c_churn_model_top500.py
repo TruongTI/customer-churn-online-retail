@@ -14,16 +14,11 @@ from pathlib import Path
 # tìm src/ để import common: chạy như script (__file__) hoặc chạy từng ô từ thư mục gốc repo / thư mục src
 sys.path.insert(0, str(Path(__file__).resolve().parent) if "__file__" in globals() else "src")
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from common import (load_lines, data_end, build_snapshot, connect, FEATURES, REPORT_DIR, FIG_DIR,
-                    PROCESSED_DIR, CHURN_DAYS)
+                    PROCESSED_DIR, CHURN_DAYS, SEED, make_lr, make_rf)
 
-SEED = 42
 HORIZON = CHURN_DAYS
 RFM_CSV = PROCESSED_DIR / "rfm_segments.csv"
 lines = load_lines()
@@ -37,14 +32,6 @@ if _rfm["ReferenceDate"].max() != END or len(_rfm) != lines["CustomerID"].nuniqu
     sys.exit(f"{RFM_CSV.name} đã cũ (ngày tham chiếu {_rfm['ReferenceDate'].max().date()}, {len(_rfm):,} khách; "
              f"dữ liệu hiện tại: {END.date()}, {lines['CustomerID'].nunique():,} khách). "
              f"Hãy chạy lại `python src/04b_rfm_segmentation.py`.")
-
-def make_lr():
-    return make_pipeline(FunctionTransformer(np.log1p), StandardScaler(),
-                         LogisticRegression(max_iter=2000, random_state=SEED))
-
-def make_rf():
-    return RandomForestClassifier(n_estimators=300, max_depth=8, min_samples_leaf=10,
-                                  random_state=SEED, n_jobs=-1)
 
 def metrics(y, p, thr=0.5):
     pred = (p >= thr).astype(int)

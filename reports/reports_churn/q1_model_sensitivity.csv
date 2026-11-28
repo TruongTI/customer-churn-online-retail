@@ -1,0 +1,4 @@
+﻿Nguong_ngay,Ngay_snapshot_2011,Ty_le_churn_2010,Ty_le_churn_2011,Lich_su_dac_trung_2010_ngay,AUC_LR_2010,AUC_LR_2011,AUC_RF_2010,AUC_RF_2011,AUC_backtest,Bat_duoc_RevenueAtRisk_%,Bat_duoc_GiaTri_%,Bat_duoc_XacSuatChurn_%,Bat_duoc_NgauNhien_%,Top500_trung_voi_nguong_chinh
+60,2011-10-10,0.478,0.469,270,0.707,0.741,0.716,0.724,0.724,45.841,36.184,9.333,16.667,425
+90,2011-09-10,0.385,0.382,270,0.695,0.751,0.695,0.739,0.74,43.2,30.307,12.011,17.999,500
+120,2011-08-11,0.332,0.341,253,0.758,0.765,0.751,0.76,0.764,45.504,30.96,17.453,17.928,388

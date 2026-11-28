@@ -1,5 +1,5 @@
 """
-Phase 2 - Làm sạch dữ liệu Online Retail II.
+Làm sạch dữ liệu Online Retail II.
 
 Chạy (từ thư mục nào cũng được):
     python src/clean_data.py
@@ -192,4 +192,4 @@ con.execute("CREATE OR REPLACE TABLE cleaning_log AS SELECT * FROM log_df")
 print("\nBảng trong DuckDB:", con.execute("SHOW TABLES").fetchall())
 con.close()
 print(f"Đã lưu: {OUT_PARQUET}, {OUT_DUCKDB}, {OUT_LOG}")
-print("Bước tiếp theo: python src/build_star_schema.py  (Star Schema hiện có trong DB đã cũ)")
+print("Bước tiếp theo: python src/build_star_schema.py")

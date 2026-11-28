@@ -1,5 +1,5 @@
 """
-Phase 3 - Dựng Star Schema trong DuckDB bằng Python (thay cho bước chạy tay trong DBeaver).
+Dựng Star Schema trong DuckDB bằng Python (thay cho bước chạy tay trong DBeaver).
 
 Chạy: python src/build_star_schema.py      (sau src/clean_data.py)
 

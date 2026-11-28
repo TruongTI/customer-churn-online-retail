@@ -19,6 +19,7 @@ STEPS = [
     "04a_churn_definition",     # câu hỏi 1
     "04b_rfm_segmentation",     # câu hỏi 2 (tạo rfm_segments, 04c cần)
     "04c_churn_model_top500",   # câu hỏi 3 + Top 500 (tạo churn_scores)
+    "04d_threshold_sensitivity",  # câu hỏi 1 bổ sung: độ nhạy của mô hình/Top 500 theo ngưỡng
     "export_for_powerbi",       # CSV cho Power BI
 ]
 

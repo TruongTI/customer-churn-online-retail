@@ -31,6 +31,8 @@ ACTIVE_DAYS = 180     # khách "đang hoạt động" = có mua trong 180 ngày 
 LOOKBACK_DAYS = 270   # cửa sổ quá khứ dùng để tính đặc trưng
 RECENT_DAYS = 90      # cửa sổ "hành vi gần đây" cho đặc trưng freq_90 / monetary_90
 
+SEED = 42             # seed chung cho mọi mô hình / chia tập
+
 plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3,
                      "axes.spines.top": False, "axes.spines.right": False})
 
@@ -164,3 +166,22 @@ def build_snapshot(lines, snap, lookback=LOOKBACK_DAYS, active_days=ACTIVE_DAYS,
         f["churn"] = np.nan
     f["snapshot"] = s
     return f.drop(columns=["last_day", "first_day", "purchase_days"])
+
+
+# ----------------------------------------------------------------------------
+# Mô hình dùng chung (04c và 04d phải dùng ĐÚNG cùng cấu hình)
+# ----------------------------------------------------------------------------
+def make_lr():
+    """Logistic Regression: log1p -> chuẩn hóa -> hồi quy logistic."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import FunctionTransformer, StandardScaler
+    return make_pipeline(FunctionTransformer(np.log1p), StandardScaler(),
+                         LogisticRegression(max_iter=2000, random_state=SEED))
+
+
+def make_rf():
+    """Random Forest dùng cho dự báo churn và chấm điểm Top 500."""
+    from sklearn.ensemble import RandomForestClassifier
+    return RandomForestClassifier(n_estimators=300, max_depth=8, min_samples_leaf=10,
+                                  random_state=SEED, n_jobs=-1)

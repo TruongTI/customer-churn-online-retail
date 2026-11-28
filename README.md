@@ -31,6 +31,8 @@ flowchart TD
     D --> R["reports/reports_churn/<br/>CSV + biểu đồ"]
     E --> R
     F --> R
+    F --> K["src/04d_threshold_sensitivity.py<br/>Câu hỏi 1 bổ sung: độ nhạy theo ngưỡng 60/90/120"]
+    K --> R
     E --> G["src/export_for_powerbi.py"]
     F -->|churn_scores| G
     G --> H["data/powerbi_data/*.csv<br/>6 bảng"]
@@ -61,6 +63,7 @@ customer-churn-online-retail/
 │   ├── 04a_churn_definition.py     # câu hỏi 1: định nghĩa churn
 │   ├── 04b_rfm_segmentation.py     # câu hỏi 2: RFM + K-Means
 │   ├── 04c_churn_model_top500.py   # câu hỏi 3 + danh sách Top 500
+│   ├── 04d_threshold_sensitivity.py  # độ nhạy của mô hình và Top 500 theo ngưỡng churn
 │   ├── export_for_powerbi.py       # xuất CSV cho Power BI
 │   ├── inspect_raw.py              # xem nhanh dữ liệu gốc
 │   └── check_env.py                # kiểm tra môi trường đã cài đủ thư viện
@@ -69,6 +72,7 @@ customer-churn-online-retail/
 ├── reports/
 │   ├── reports_churn/              # CSV kết quả + figures/ (biểu đồ PNG)
 │   ├── cleaning_log.csv            # nhật ký số dòng bị loại ở mỗi bước làm sạch
+│   ├── Top500_KhachHang_ChamSoc.xlsx  # danh sách Top 500 cho bộ phận kinh doanh
 │   └── Bao_cao_thuc_tap.docx       # báo cáo thực tập
 ├── requirements.txt
 ├── .gitignore
@@ -117,7 +121,7 @@ Nếu bạn tải bản `.xlsx` gồm 2 sheet từ UCI, hãy gộp 2 sheet thàn
 python src\run_pipeline.py
 ```
 
-Lệnh này chạy lần lượt `clean_data` → `build_star_schema` → `04a` → `04b` → `04c` → `export_for_powerbi` và dừng ngay ở bước nào bị lỗi. Trên laptop thông thường mất khoảng 1 phút. Các script tự tính đường dẫn từ thư mục gốc repo, nên đứng ở thư mục nào chạy cũng được.
+Lệnh này chạy lần lượt `clean_data` → `build_star_schema` → `04a` → `04b` → `04c` → `04d` → `export_for_powerbi` và dừng ngay ở bước nào bị lỗi. Trên laptop thông thường mất khoảng 1–2 phút. Các script tự tính đường dẫn từ thư mục gốc repo, nên đứng ở thư mục nào chạy cũng được.
 
 Chạy tiếp từ một bước, ví dụ sau khi sửa lỗi ở bước 04c:
 
@@ -133,6 +137,7 @@ python src\build_star_schema.py
 python src\04a_churn_definition.py
 python src\04b_rfm_segmentation.py         # 04c dùng kết quả của bước này
 python src\04c_churn_model_top500.py
+python src\04d_threshold_sensitivity.py
 python src\export_for_powerbi.py
 ```
 
@@ -165,7 +170,7 @@ Nếu muốn kiểm tra thêm trong DBeaver: chạy câu số 2 trong `sql/quali
 | Hạng mục | Kết quả |
 |---|---|
 | Dữ liệu sạch | 770.352 / 1.067.371 dòng (72,2%), gồm 5.839 khách hàng, 36.324 hóa đơn, 4.612 sản phẩm; doanh thu khoảng 16,46 triệu GBP |
-| Ngưỡng churn | **90 ngày** không mua hàng. Mốc này xấp xỉ phân vị 80% của khoảng cách giữa 2 lần mua (88 ngày); tỷ lệ churn trung bình 50,5% (dao động 38–62%) qua các snapshot cuối tháng |
+| Ngưỡng churn | **90 ngày** không mua hàng. Mốc này xấp xỉ phân vị 80% của khoảng cách giữa 2 lần mua (88 ngày); tỷ lệ churn trung bình 50,5% (dao động 38–62%) qua các snapshot cuối tháng . Khi chạy lại với 60 và 120 ngày, các kết luận chính không đổi: không có model drift, Revenue at Risk vẫn là chiến lược tốt nhất (43–46%), Top 500 trùng 78–85% khách |
 | Phân khúc RFM | Champions chiếm 26,1% số khách nhưng tạo **71,6% doanh thu**. Tỷ lệ khách giữ nguyên phân khúc giữa 2 quý liên tiếp trung bình 54,2% (41–63%). Phân cụm K-Means (k=4) khớp vừa phải với phân khúc theo quy tắc (ARI 0,525) |
 | Mô hình churn | ROC-AUC trên 2011: Logistic Regression **0,751**, Random Forest **0,739**. Cả hai đều cao hơn trên tập giữ lại năm 2010 (0,695), tức là không thấy hiệu năng suy giảm. PSI của cả 12 đặc trưng ≤ 0,026: phân phối đầu vào ổn định |
 | Top 500 (kiểm chứng ngược tại 10/09/2011) | Chọn theo **Revenue at Risk** (xác suất churn × doanh thu ước tính 90 ngày) bắt được **43,2%** doanh thu ước tính bị mất. Các cách khác: theo giá trị 30,3%, ngẫu nhiên 17,9%, theo xác suất churn 12,0% |
